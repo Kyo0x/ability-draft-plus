@@ -11,7 +11,7 @@
 AI-powered overlay for Dota 2's Ability Draft mode. Scans the draft board using machine learning, identifies all abilities in the pool, and displays real-time synergy recommendations directly on your game screen.
 
 ![License](https://img.shields.io/badge/license-ISC-blue)
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Platform](https://img.shields.io/badge/platform-Windows%20%2B%20Linux-blue)
 ![Electron](https://img.shields.io/badge/Electron-40+-47848F)
 
 ## Features
@@ -30,6 +30,12 @@ AI-powered overlay for Dota 2's Ability Draft mode. Scans the draft board using 
 - **Ability tooltips** -- hover any ability for detailed stats, synergies, and win rates
 - **Hero model tooltips** -- hover hero models for hero-specific ability synergies
 - **OP & Trap panels** -- scrollable lists of the best and worst ability combinations in the current pool
+
+### Linux Companion Mode
+- On Linux compositors such as **Hyprland**, the app runs as a **companion window** instead of a click-through game overlay
+- If a second monitor is connected, the companion window opens there by default
+- All scan and recommendation features remain available; Windows-only game window tracking is disabled
+- Click-through passthrough is disabled on Linux by default to support compositor-based workspace overlay workflows
 
 ### Data & ML
 - **Windrun.io integration** -- one-click data scraping from the premier Ability Draft statistics site

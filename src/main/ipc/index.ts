@@ -48,6 +48,7 @@ import type { ScanTriggerService } from '../services/scan-trigger-service'
 // is the most complex -- see its inline comment below.
 
 const logger = log.scope('ipc')
+const IS_WINDOWS = process.platform === 'win32'
 
 export function registerIpcHandlers(
   windowManager: WindowManager,
@@ -86,6 +87,17 @@ export function registerIpcHandlers(
     }
   })
 
+  ipcMain.handle('app:getDisplays', () => {
+    const primaryDisplay = screen.getPrimaryDisplay()
+    return screen.getAllDisplays().map((d, index) => ({
+      id: d.id,
+      label: d.id === primaryDisplay.id ? `Display 1 (Primary)` : `Display ${index + 1}`,
+      bounds: d.bounds,
+      scaleFactor: d.scaleFactor,
+      isPrimary: d.id === primaryDisplay.id,
+    }))
+  })
+
   ipcMain.handle('theme:get', () => ({
     shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
   }))
@@ -117,15 +129,37 @@ export function registerIpcHandlers(
   // 5. Start window tracking (polls game window every 2s for windowed-mode repositioning)
   // 6. Listen to overlay 'closed' event to clean up state (tracker, appStore, pendingData)
   //
+  // Multi-monitor: if overlayMonitor === 'secondary' and a second display exists, the overlay
+  // opens on the secondary display. The scaleFactor sent to the renderer becomes a composite:
+  //   compositeScaleFactor = gamePhysicalHeight / overlayDisplay.bounds.height
+  // This maps game physical pixel coordinates (from layout_coordinates.json) to the overlay
+  // window's logical CSS pixel space, which may have a different DPI from the game display.
+  //
   // The pendingOverlayData pattern avoids a race: overlay renderer mounts asynchronously,
   // so overlay:getInitialData lets it pull data when ready instead of relying on did-finish-load.
   ipcMain.handle('overlay:activate', () => {
-    // Auto-detect resolution from game window or primary display
     const primaryDisplay = screen.getPrimaryDisplay()
+    const allDisplays = screen.getAllDisplays()
+    const overlayMonitor = appStore.getState().overlayMonitor
+
+    // Determine which display the overlay opens on (may differ from game display)
+    let overlayDisplay = primaryDisplay
+    if (overlayMonitor === 'secondary' && allDisplays.length > 1) {
+      overlayDisplay = allDisplays.find((d) => d.id !== primaryDisplay.id) ?? primaryDisplay
+      logger.info('Second monitor mode activated', { gameDisplayId: primaryDisplay.id, overlayDisplayId: overlayDisplay.id })
+    } else if (overlayMonitor === 'secondary') {
+      logger.warn('Second monitor requested but only one display detected, falling back to primary')
+    }
+
+    // Auto-detect resolution from game window (always on primary) or primary display size
     const gameBounds = windowTracker.getGameWindowPhysicalBounds()
-    const resolution = gameBounds
-      ? `${gameBounds.width}x${gameBounds.height}`
-      : `${Math.round(primaryDisplay.size.width * primaryDisplay.scaleFactor)}x${Math.round(primaryDisplay.size.height * primaryDisplay.scaleFactor)}`
+    const gamePhysW = gameBounds
+      ? gameBounds.width
+      : Math.round(primaryDisplay.size.width * primaryDisplay.scaleFactor)
+    const gamePhysH = gameBounds
+      ? gameBounds.height
+      : Math.round(primaryDisplay.size.height * primaryDisplay.scaleFactor)
+    const resolution = `${gamePhysW}x${gamePhysH}`
 
     const source = layoutService.getLayoutSource(resolution)
     const coords = layoutService.getLayout(resolution)
@@ -140,7 +174,12 @@ export function registerIpcHandlers(
       controlPanel.minimize()
     }
 
-    const overlayWin = windowManager.createOverlayWindow()
+    // compositeScaleFactor: maps game physical pixels → overlay logical CSS pixels.
+    // When overlay is on same display as game: equals layoutService.getScaleFactor() (display DPI scale).
+    // When overlay is on a different display: cross-display mapping keeps hotspots correctly aligned.
+    const compositeScaleFactor = gamePhysH / overlayDisplay.bounds.height
+
+    const overlayWin = windowManager.createOverlayWindow(overlayDisplay)
     bridge.subscribe([overlayWin])
     appStore.setState({ overlayActive: true, activeResolution: resolution, activeResolutionSource: source })
 
@@ -156,13 +195,16 @@ export function registerIpcHandlers(
     globalShortcut.register('Control+Shift+S', () => sendHotkey('scan'))
     globalShortcut.register('Control+Shift+R', () => sendHotkey('rescan'))
 
+    // Direct screenshot service to capture from the game display when it differs from overlay display
+    const isCrossDisplay = overlayDisplay.id !== primaryDisplay.id
+    screenshotService.setTargetDisplay(isCrossDisplay ? primaryDisplay.bounds : null)
+
     // Store initial setup data so the renderer can request it after mounting
-    const scaleFactor = layoutService.getScaleFactor()
     pendingOverlayData = {
       initialSetup: true,
       scanData: null,
       targetResolution: resolution,
-      scaleFactor,
+      scaleFactor: compositeScaleFactor,
       opCombinations: [],
       trapCombinations: [],
       heroSynergies: [],
@@ -174,29 +216,34 @@ export function registerIpcHandlers(
       heroesCoords: coords.heroes_coords ?? [],
       heroesParams: coords.heroes_params ?? { width: 0, height: 0 },
       modelsCoords: coords.models_coords ?? [],
+      bestPickSuggestions: [],
     }
 
-    // Auto-detect game window and reposition overlay for windowed mode
-    const displayBounds = primaryDisplay.bounds
+    // Auto-detect game window and reposition overlay for windowed mode (Windows only).
+    // On Linux/macOS we run as a companion window, typically on a second display.
+    if (IS_WINDOWS) {
+      const displayBounds = overlayDisplay.bounds
 
-    windowTracker.startTracking((trackBounds) => {
-      if (trackBounds && (
-        trackBounds.width < displayBounds.width ||
-        trackBounds.height < displayBounds.height
-      )) {
-        // Game window is smaller than display → windowed mode
-        windowManager.repositionOverlay(trackBounds)
-      } else {
-        // Fullscreen/borderless or game not found → use full display
-        windowManager.repositionOverlay(displayBounds)
-      }
-    })
+      windowTracker.startTracking((trackBounds) => {
+        if (trackBounds && (
+          trackBounds.width < displayBounds.width ||
+          trackBounds.height < displayBounds.height
+        )) {
+          // Game window is smaller than display → windowed mode
+          windowManager.repositionOverlay(trackBounds, overlayDisplay)
+        } else {
+          // Fullscreen/borderless or game not found → use full overlay display
+          windowManager.repositionOverlay(displayBounds, overlayDisplay)
+        }
+      })
+    }
 
     // Reset state when overlay window closes for any reason (user close, crash, etc.)
     overlayWin.on('closed', () => {
       globalShortcut.unregister('Control+Shift+S')
       globalShortcut.unregister('Control+Shift+R')
       windowTracker.stopTracking()
+      screenshotService.setTargetDisplay(null)
       appStore.setState({ overlayActive: false, activeResolution: null, activeResolutionSource: null })
       draftStore.getState().resetSession()
       streamService.onSessionReset()
@@ -209,7 +256,7 @@ export function registerIpcHandlers(
       }
     })
 
-    logger.info('Overlay activated with auto-detected resolution', { resolution, source })
+    logger.info('Overlay activated', { resolution, source, overlayDisplayId: overlayDisplay.id, compositeScaleFactor })
     return { success: true, resolution, source }
   })
 
@@ -246,8 +293,8 @@ export function registerIpcHandlers(
   // ML domain
   registerMlHandlers(mlService, windowManager, scanTrigger, appStore, dbService)
 
-  // Draft domain (My Spot, My Model)
-  registerDraftHandlers(draftStore, windowManager)
+  // Draft domain (My Spot, My Model, Manual Hero ID)
+  registerDraftHandlers(draftStore, windowManager, dbService, appStore, layoutService, scanProcessingService)
 
   // Scraper domain
   registerScraperHandlers(scraperService)

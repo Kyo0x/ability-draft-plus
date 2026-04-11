@@ -159,6 +159,8 @@ app.whenReady().then(async () => {
     language: (settings.language as 'en' | 'ru') ?? 'en',
     overlayOpacity: settings.overlayOpacity,
     overlayAnchor: settings.overlayAnchor,
+    overlayMonitor: settings.overlayMonitor ?? 'primary',
+    keepHighlightsWithTooltip: settings.keepHighlightsWithTooltip ?? false,
   })
 
   // Sync nativeTheme changes to app store
@@ -171,6 +173,8 @@ app.whenReady().then(async () => {
   let prevLanguage = appStore.getState().language
   let prevOverlayOpacity = appStore.getState().overlayOpacity
   let prevOverlayAnchor = appStore.getState().overlayAnchor
+  let prevOverlayMonitor = appStore.getState().overlayMonitor
+  let prevKeepHighlights = appStore.getState().keepHighlightsWithTooltip
   appStore.subscribe((state) => {
     if (nativeTheme.themeSource !== state.themeMode) {
       nativeTheme.themeSource = state.themeMode
@@ -200,6 +204,16 @@ app.whenReady().then(async () => {
     if (state.overlayAnchor !== prevOverlayAnchor) {
       prevOverlayAnchor = state.overlayAnchor
       dbService.metadata.setSettings({ overlayAnchor: state.overlayAnchor })
+      dbService.persist()
+    }
+    if (state.overlayMonitor !== prevOverlayMonitor) {
+      prevOverlayMonitor = state.overlayMonitor
+      dbService.metadata.setSettings({ overlayMonitor: state.overlayMonitor })
+      dbService.persist()
+    }
+    if (state.keepHighlightsWithTooltip !== prevKeepHighlights) {
+      prevKeepHighlights = state.keepHighlightsWithTooltip
+      dbService.metadata.setSettings({ keepHighlightsWithTooltip: state.keepHighlightsWithTooltip })
       dbService.persist()
     }
   })

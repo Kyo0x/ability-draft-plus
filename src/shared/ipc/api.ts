@@ -72,6 +72,16 @@ export interface IpcInvokeMap {
   'app:getVersion': { request: void; response: string }
   'app:getSystemInfo': { request: void; response: SystemDisplayInfo }
   'app:isPackaged': { request: void; response: boolean }
+  'app:getDisplays': {
+    request: void
+    response: Array<{
+      id: number
+      label: string
+      bounds: { x: number; y: number; width: number; height: number }
+      scaleFactor: number
+      isPrimary: boolean
+    }>
+  }
   'theme:get': { request: void; response: { shouldUseDarkColors: boolean } }
   'backup:create': { request: void; response: { success: boolean; backupPath?: string; error?: string } }
   'backup:list': {
@@ -150,6 +160,7 @@ export interface IpcSendMap {
   'ml:scan': { heroOrder: number; isInitialScan: boolean }
   'draft:selectMySpot': { heroOrder: number; dbHeroId: number }
   'draft:selectMyModel': { heroOrder: number; dbHeroId: number }
+  'draft:identifyHero': { heroOrder: number; heroId: number }
   'app:openExternal': { url: string }
   'app:checkUpdate': void
   'app:downloadUpdate': void
@@ -165,6 +176,7 @@ export interface IpcSendMap {
 export interface IpcOnMap {
   'overlay:data': OverlayDataPayload
   'overlay:hotkey': { action: 'scan' | 'rescan' }
+  'overlay:screenshot': string // base64 PNG data URL for companion mode background
   'ml:scanResults': {
     error?: string
     results?: InitialScanResults | ScanResult[]

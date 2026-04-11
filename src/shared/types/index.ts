@@ -58,6 +58,8 @@ export interface AppSettings {
   streamAutostart: boolean
   /** EXPERIMENTAL: GSI-driven auto-rescan + pick attribution. Default off. */
   experimentalAutoDraftTracking: boolean
+  overlayMonitor: 'primary' | 'secondary'
+  keepHighlightsWithTooltip: boolean
 }
 
 export interface SlotCoordinate {
@@ -109,6 +111,17 @@ export interface EnrichedScanSlot extends ScanResult {
   weakHeroSynergies: HeroSynergyDisplay[]
 }
 
+export interface BestPickSuggestion {
+  abilityName: string
+  abilityDisplayName: string
+  synergyWinrate: number
+  synergizesWithDisplayName: string
+  coord: SlotCoordinate
+  heroOrder: number
+  abilityOrder: number
+  isUltimate: boolean
+}
+
 export interface OverlayDataPayload {
   initialSetup: boolean
   scanData: {
@@ -129,6 +142,7 @@ export interface OverlayDataPayload {
   heroesCoords: SlotCoordinate[]
   heroesParams: { width: number; height: number }
   modelsCoords: SlotCoordinate[]
+  bestPickSuggestions: BestPickSuggestion[]
 }
 
 export interface ThirdAbilitySuggestion {

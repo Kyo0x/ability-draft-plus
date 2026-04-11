@@ -6,8 +6,10 @@ interface HeroModelHotspotProps {
   coord: SlotCoordinate
   scaleFactor: number
   isMyModel: boolean
+  tooltipVisible?: boolean
   onHover: (model: HeroModelDisplay, rect: DOMRect) => void
   onLeave: () => void
+  onClick?: (model: HeroModelDisplay) => void
 }
 
 export function HeroModelHotspot({
@@ -15,8 +17,10 @@ export function HeroModelHotspot({
   coord,
   scaleFactor,
   isMyModel,
+  tooltipVisible,
   onHover,
   onLeave,
+  onClick,
 }: HeroModelHotspotProps): React.ReactElement {
   const style: React.CSSProperties = {
     left: coord.x / scaleFactor,
@@ -26,11 +30,18 @@ export function HeroModelHotspot({
   }
 
   let className = 'hero-model-hotspot'
+  const isUnidentified = model.dbHeroId === null
 
-  if (isMyModel) {
+  if (isUnidentified) {
+    className += ' hero-model-unidentified'
+  } else if (isMyModel) {
     className += ' is-my-model'
   } else if (model.isGeneralTopTier) {
     className += ' shimmer-gold'
+  }
+
+  if (tooltipVisible) {
+    className += ' snapshot-hidden-border'
   }
 
   const handleMouseEnter = useCallback(
@@ -40,12 +51,19 @@ export function HeroModelHotspot({
     [model, onHover],
   )
 
+  const handleClick = useCallback(() => {
+    if (isUnidentified && onClick) {
+      onClick(model)
+    }
+  }, [isUnidentified, onClick, model])
+
   return (
     <div
       className={className}
       style={style}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={onLeave}
+      onClick={handleClick}
       data-hero-name={model.heroDisplayName}
       aria-label={model.heroDisplayName}
       id={`hero-model-hotspot-${model.heroOrder}`}

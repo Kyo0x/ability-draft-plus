@@ -6,7 +6,10 @@ import { ConfirmModal } from './components/ConfirmModal'
 import { StatusToast } from './components/StatusToast'
 import { HotspotLayer } from './components/HotspotLayer'
 import { CombinationPanel } from './components/CombinationPanel'
+import { TopWinratePanel } from './components/TopWinratePanel'
+import { BestPicksPanel } from './components/BestPicksPanel'
 import { DynamicButtons } from './components/DynamicButtons'
+import { HeroSelectorModal } from './components/HeroSelectorModal'
 import { useAppStore } from './hooks/use-app-store'
 import i18n from './i18n'
 
@@ -36,6 +39,7 @@ function App(): React.ReactElement {
     scanError,
     snapshotMessage,
     snapshotIsError,
+    screenshotUrl,
     triggerScan,
     resetOverlay,
   } = useOverlayData()
@@ -44,6 +48,9 @@ function App(): React.ReactElement {
   const [showReportConfirm, setShowReportConfirm] = useState(false)
   const [opPanelVisible, setOpPanelVisible] = useState(true)
   const [trapPanelVisible, setTrapPanelVisible] = useState(true)
+  const [winratePanelVisible, setWinratePanelVisible] = useState(true)
+  const [bestPicksPanelVisible, setBestPicksPanelVisible] = useState(true)
+  const [heroSelectorOrder, setHeroSelectorOrder] = useState<number | null>(null)
 
   // Escape key closes overlay
   useEffect(() => {
@@ -58,6 +65,7 @@ function App(): React.ReactElement {
 
   // Sync language from @zubridge appStore
   const language = useAppStore((s) => s.language)
+  const overlayMonitor = useAppStore((s) => s.overlayMonitor)
   useEffect(() => {
     if (language && language !== i18n.language) {
       i18n.changeLanguage(language)
@@ -127,6 +135,15 @@ function App(): React.ReactElement {
   const unknownCount = poolSlots.filter((s) => s.isUnknown).length
   const recognizedCount = poolSlots.length - unknownCount
 
+  const handleHeroModelClick = useCallback(
+    (model: import('@shared/types').HeroModelDisplay): void => {
+      if (model.dbHeroId === null) {
+        setHeroSelectorOrder(model.heroOrder)
+      }
+    },
+    [],
+  )
+
   // Status message for scan state
   const statusMessage =
     scanState === 'scanning'
@@ -140,12 +157,23 @@ function App(): React.ReactElement {
 
   return (
     <div className={`overlay-root${scanState === 'scanning' ? ' capture-mode' : ''}`}>
+      {/* Companion mode: show game screenshot as background */}
+      {overlayMonitor === 'secondary' && screenshotUrl && (
+        <img
+          src={screenshotUrl}
+          alt=""
+          className="companion-screenshot"
+        />
+      )}
+
+
       {/* Hotspot Layer (abilities + hero models + tooltip) */}
       {overlayData?.scanData && (
         <HotspotLayer
           overlayData={overlayData}
           selectedSpotHeroOrder={selectedSpotHeroOrder}
           selectedModelHeroOrder={selectedModelHeroOrder}
+          onHeroModelClick={handleHeroModelClick}
         />
       )}
 
@@ -197,6 +225,15 @@ function App(): React.ReactElement {
           </div>
         )}
 
+        {/* Best Picks Panel - z-index 9999 */}
+        {overlayData && (
+          <BestPicksPanel
+            suggestions={overlayData.bestPickSuggestions}
+            visible={bestPicksPanelVisible}
+            onToggle={() => setBestPicksPanelVisible((v) => !v)}
+          />
+        )}
+
         {/* OP Combinations Panel - z-index 9999 */}
         {overlayData && (
           <CombinationPanel
@@ -216,6 +253,19 @@ function App(): React.ReactElement {
             heroSynergies={overlayData.heroTraps}
             visible={trapPanelVisible}
             onToggle={() => setTrapPanelVisible((v) => !v)}
+          />
+        )}
+
+        {/* Highest Winrate Panel - z-index 9999 */}
+        {overlayData?.scanData && (
+          <TopWinratePanel
+            abilities={[
+              ...overlayData.scanData.ultimates,
+              ...overlayData.scanData.standard,
+            ]}
+            heroModels={overlayData.heroModels}
+            visible={winratePanelVisible}
+            onToggle={() => setWinratePanelVisible((v) => !v)}
           />
         )}
       </div>
@@ -247,6 +297,13 @@ function App(): React.ReactElement {
         cancelLabel={t('reportConfirm.cancel')}
         onConfirm={handleReportSubmit}
         onCancel={() => setShowReportConfirm(false)}
+      />
+
+      {/* Hero Selector Modal - z-index 10005 */}
+      <HeroSelectorModal
+        heroOrder={heroSelectorOrder ?? 0}
+        open={heroSelectorOrder !== null}
+        onClose={() => setHeroSelectorOrder(null)}
       />
     </div>
   )

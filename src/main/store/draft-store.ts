@@ -20,6 +20,7 @@ import type { IdentifiedHeroModel } from '@core/domain/types'
 export interface DraftSessionSlice {
   initialPoolAbilitiesCache: { ultimates: ScanResult[]; standard: ScanResult[] }
   identifiedHeroModelsCache: IdentifiedHeroModel[]
+  lastSelectedAbilities: ScanResult[]
   mySelectedSpotDbId: number | null
   mySelectedSpotHeroOrder: number | null
   mySelectedModelDbHeroId: number | null
@@ -49,6 +50,7 @@ export function createDraftStore() {
     // Initial state
     initialPoolAbilitiesCache: { ultimates: [], standard: [] },
     identifiedHeroModelsCache: [],
+    lastSelectedAbilities: [],
     mySelectedSpotDbId: null,
     mySelectedSpotHeroOrder: null,
     mySelectedModelDbHeroId: null,
@@ -63,6 +65,7 @@ export function createDraftStore() {
       set({
         initialPoolAbilitiesCache: { ultimates: [], standard: [] },
         identifiedHeroModelsCache: [],
+        lastSelectedAbilities: [],
         mySelectedSpotDbId: null,
         mySelectedSpotHeroOrder: null,
         mySelectedModelDbHeroId: null,

@@ -30,6 +30,8 @@ export function createAppStore() {
     activeResolutionSource: null,
     overlayOpacity: 1,
     overlayAnchor: 'right',
+    overlayMonitor: 'primary',
+    keepHighlightsWithTooltip: false,
     mlStatus: 'idle',
     mlError: null,
     mlModelGaps: null,
@@ -78,6 +80,12 @@ export function createAppStoreHandlers(store: AppStore): Record<string, Handler>
         ...(data.opacity !== undefined ? { overlayOpacity: data.opacity } : {}),
         ...(data.anchor !== undefined ? { overlayAnchor: data.anchor } : {}),
       })
+    },
+    [APP_ACTIONS.OVERLAY_SET_MONITOR]: (payload) => {
+      store.setState({ overlayMonitor: payload as AppStoreState['overlayMonitor'] })
+    },
+    [APP_ACTIONS.OVERLAY_SET_KEEP_HIGHLIGHTS]: (payload) => {
+      store.setState({ keepHighlightsWithTooltip: payload as boolean })
     },
     [APP_ACTIONS.ML_SET_STATUS]: (payload) => {
       const data = payload as { status: AppStoreState['mlStatus']; error?: string }

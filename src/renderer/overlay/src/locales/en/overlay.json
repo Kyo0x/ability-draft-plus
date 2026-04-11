@@ -48,6 +48,19 @@
       "none": "unsupported"
     }
   },
+  "topWinrate": {
+    "title": "Highest Winrate",
+    "show": "Show Top WR",
+    "hide": "Hide",
+    "tabAbilities": "Abilities",
+    "tabHeroes": "Heroes"
+  },
+  "bestPicks": {
+    "title": "Best Picks for Your Spells",
+    "show": "Best Picks ({{count}})",
+    "hide": "Hide",
+    "pairsWith": "pairs with {{ability}}"
+  },
   "mySpot": "My Spot",
   "changeMySpot": "Change",
   "myModel": "My Model",
@@ -67,5 +80,11 @@
     "weakAbilities": "Weak Abilities for This Hero",
     "unknownAbility": "Unknown Ability",
     "unknownHint": "The model could not identify this icon — consider using 'Report Failed Recognition'"
+  },
+  "heroSelector": {
+    "title": "Identify Hero",
+    "placeholder": "Type hero name...",
+    "cancel": "Cancel",
+    "noResults": "No heroes found"
   }
 }

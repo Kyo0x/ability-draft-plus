@@ -67,6 +67,7 @@ export interface IdentifiedHeroModel {
 export interface DraftSessionState {
   initialPoolAbilitiesCache: { ultimates: ScanResult[]; standard: ScanResult[] }
   identifiedHeroModelsCache: IdentifiedHeroModel[]
+  lastSelectedAbilities: ScanResult[]
   mySelectedSpotDbId: number | null
   mySelectedSpotHeroOrder: number | null
   mySelectedModelDbHeroId: number | null

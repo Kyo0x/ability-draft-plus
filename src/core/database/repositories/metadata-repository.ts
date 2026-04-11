@@ -46,6 +46,8 @@ export function createMetadataRepository(db: SQLJsDatabase): MetadataRepository 
       const streamPort = get('stream_port')
       const streamAutostart = get('stream_autostart')
       const autoDraftTracking = get('experimental_auto_draft_tracking')
+      const overlayMonitor = get('overlay_monitor')
+      const keepHighlightsWithTooltip = get('keep_highlights_with_tooltip')
 
       return {
         opThreshold:
@@ -81,6 +83,9 @@ export function createMetadataRepository(db: SQLJsDatabase): MetadataRepository 
           autoDraftTracking !== null
             ? autoDraftTracking === 'true'
             : DEFAULT_SETTINGS.experimentalAutoDraftTracking,
+        overlayMonitor:
+          overlayMonitor === 'secondary' ? 'secondary' : 'primary',
+        keepHighlightsWithTooltip: keepHighlightsWithTooltip === 'true',
       }
     },
 
@@ -114,6 +119,12 @@ export function createMetadataRepository(db: SQLJsDatabase): MetadataRepository 
           'experimental_auto_draft_tracking',
           String(settings.experimentalAutoDraftTracking),
         )
+      }
+      if (settings.overlayMonitor !== undefined) {
+        set('overlay_monitor', settings.overlayMonitor)
+      }
+      if (settings.keepHighlightsWithTooltip !== undefined) {
+        set('keep_highlights_with_tooltip', String(settings.keepHighlightsWithTooltip))
       }
     },
 

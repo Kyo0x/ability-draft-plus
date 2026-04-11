@@ -30,6 +30,10 @@ export const DEFAULT_TRAP_THRESHOLD = 0.05
 // and validated against the model's output width at classifier init.
 export const MODEL_INPUT_SIZE = 96
 
+// Screenshot capture cache/prefetch
+export const SCREENSHOT_CACHE_TTL = 2_000
+export const SCREENSHOT_PREFETCH_INTERVAL = 1_500
+
 // Streamer view
 export const STREAM_PROTOCOL_VERSION = 1
 export const DEFAULT_STREAM_PORT = 58873

@@ -3,6 +3,7 @@ import { ThresholdCard } from '@/components/settings/threshold-card'
 import { AppearanceCard } from '@/components/settings/appearance-card'
 import { BackupCard } from '@/components/settings/backup-card'
 import { FeedbackCard } from '@/components/settings/feedback-card'
+import { MonitorCard } from '@/components/settings/monitor-card'
 import { DEFAULT_OP_THRESHOLD, DEFAULT_TRAP_THRESHOLD } from '@shared/constants/thresholds'
 
 export function SettingsPage() {
@@ -25,6 +26,7 @@ export function SettingsPage() {
         />
       </div>
 
+      <MonitorCard />
       <AppearanceCard />
       <BackupCard />
       <FeedbackCard />

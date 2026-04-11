@@ -18,6 +18,7 @@ import log from 'electron-log/main'
 // Polling: startTracking() queries the window every 2s and fires callback only on bounds change.
 
 const logger = log.scope('window-tracker')
+const IS_WINDOWS = process.platform === 'win32'
 
 export interface GameWindowBounds {
   x: number
@@ -48,6 +49,10 @@ let bindings: {
 let bindingsInitFailed = false
 
 function loadBindings(): typeof bindings {
+  if (!IS_WINDOWS) {
+    return null
+  }
+
   if (bindings) return bindings
   if (bindingsInitFailed) return null
 
@@ -113,6 +118,10 @@ interface RawGameWindowBounds {
 // GetClientRect returns size relative to client origin (0,0), ClientToScreen translates to screen coords.
 // Returns null if the window isn't found, has zero size, or FFI bindings failed to load.
 function queryGameWindow(): RawGameWindowBounds | null {
+  if (!IS_WINDOWS) {
+    return null
+  }
+
   const b = loadBindings()
   if (!b) return null
 
@@ -175,6 +184,13 @@ export function createWindowTrackerService(): WindowTrackerService {
     },
 
     startTracking(onBoundsChange, intervalMs = 2000): void {
+      if (!IS_WINDOWS) {
+        // Linux/macOS do not use Win32 polling; callers should rely on display bounds.
+        onBoundsChange(null)
+        logger.info('Window tracking skipped on non-Windows platform')
+        return
+      }
+
       this.stopTracking()
 
       // Query immediately

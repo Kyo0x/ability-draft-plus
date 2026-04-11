@@ -132,6 +132,7 @@ function makeInitialState(): DraftSessionState {
   return {
     initialPoolAbilitiesCache: { ultimates: [], standard: [] },
     identifiedHeroModelsCache: [],
+    lastSelectedAbilities: [],
     mySelectedSpotDbId: null,
     mySelectedSpotHeroOrder: null,
     mySelectedModelDbHeroId: null,

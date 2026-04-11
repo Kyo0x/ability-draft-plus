@@ -18,6 +18,13 @@
     "defaultLabel": "По умолчанию: {{value}}%",
     "resetButton": "Сбросить"
   },
+  "monitor": {
+    "title": "Экран оверлея",
+    "description": "Выберите монитор для отображения оверлея. 'Второй' — полезно, если Dota 2 запущена на полный экран основного монитора.",
+    "primary": "Основной",
+    "secondary": "Второй",
+    "secondaryDisabledHint": "Обнаружен только один монитор"
+  },
   "appearance": {
     "title": "Внешний вид",
     "themeLabel": "Тема",
@@ -25,7 +32,9 @@
     "overlayOpacityLabel": "Прозрачность панелей оверлея",
     "overlayAnchorLabel": "Расположение панелей оверлея",
     "anchorLeft": "Слева",
-    "anchorRight": "Справа"
+    "anchorRight": "Справа",
+    "keepHighlightsLabel": "Не скрывать подсветку при наведении",
+    "keepHighlightsHint": "Анимация способностей остаётся видимой, пока открыта подсказка"
   },
   "backup": {
     "title": "Резервное копирование",

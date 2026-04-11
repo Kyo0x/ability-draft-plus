@@ -96,7 +96,7 @@ export function registerResolutionHandlers(
 
     let buffer: Buffer
     try {
-      buffer = await screenshotService.capture()
+      buffer = await screenshotService.capture(true)
     } finally {
       // Always restore the control panel, even on capture failure
       if (cpWindow && !cpWindow.isDestroyed()) {

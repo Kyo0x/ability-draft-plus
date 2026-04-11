@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ export function AppearanceCard() {
   const language = useAppStore((s) => s.language)
   const overlayOpacity = useAppStore((s) => s.overlayOpacity)
   const overlayAnchor = useAppStore((s) => s.overlayAnchor)
+  const keepHighlights = useAppStore((s) => s.keepHighlightsWithTooltip)
   const dispatch = useAppDispatch()
 
   const handleThemeChange = (mode: 'light' | 'dark' | 'system') => {
@@ -124,6 +126,17 @@ export function AppearanceCard() {
               {ts('appearance.anchorRight')}
             </Button>
           </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <label className="text-sm font-medium">{ts('appearance.keepHighlightsLabel')}</label>
+            <p className="text-xs text-muted-foreground">{ts('appearance.keepHighlightsHint')}</p>
+          </div>
+          <Switch
+            checked={keepHighlights}
+            onCheckedChange={(checked) => dispatch(APP_ACTIONS.OVERLAY_SET_KEEP_HIGHLIGHTS, checked)}
+          />
         </div>
       </CardContent>
     </Card>

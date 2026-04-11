@@ -3,20 +3,28 @@ import type { EnrichedScanSlot, HeroModelDisplay, OverlayDataPayload } from '@sh
 import { AbilityHotspot } from './AbilityHotspot'
 import { HeroModelHotspot } from './HeroModelHotspot'
 import { Tooltip, type TooltipData } from './Tooltip'
+import { useAppStore } from '../hooks/use-app-store'
 
 interface HotspotLayerProps {
   overlayData: OverlayDataPayload
   selectedSpotHeroOrder: number | null
   selectedModelHeroOrder: number | null
+  onHeroModelClick?: (model: HeroModelDisplay) => void
 }
 
 export function HotspotLayer({
   overlayData,
   selectedSpotHeroOrder,
   selectedModelHeroOrder,
+  onHeroModelClick,
 }: HotspotLayerProps): React.ReactElement | null {
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
   const [tooltipAnchor, setTooltipAnchor] = useState<DOMRect | null>(null)
+  const keepHighlights = useAppStore((s) => s.keepHighlightsWithTooltip)
+
+  // When keepHighlights is enabled, pass false so hotspots never apply snapshot-hidden-border
+  const tooltipVisible = tooltipData !== null && !keepHighlights
+
 
   const handleAbilityHover = useCallback(
     (slot: EnrichedScanSlot, rect: DOMRect) => {
@@ -53,6 +61,7 @@ export function HotspotLayer({
           scaleFactor={scaleFactor}
           isSelectedAbility={false}
           isMySpotHero={false}
+          tooltipVisible={tooltipVisible}
           onHover={handleAbilityHover}
           onLeave={handleLeave}
         />
@@ -66,6 +75,7 @@ export function HotspotLayer({
           scaleFactor={scaleFactor}
           isSelectedAbility={false}
           isMySpotHero={false}
+          tooltipVisible={tooltipVisible}
           onHover={handleAbilityHover}
           onLeave={handleLeave}
         />
@@ -79,6 +89,7 @@ export function HotspotLayer({
           scaleFactor={scaleFactor}
           isSelectedAbility
           isMySpotHero={slot.hero_order === selectedSpotHeroOrder}
+          tooltipVisible={tooltipVisible}
           onHover={handleAbilityHover}
           onLeave={handleLeave}
         />
@@ -95,8 +106,10 @@ export function HotspotLayer({
             coord={coord}
             scaleFactor={scaleFactor}
             isMyModel={model.heroOrder === selectedModelHeroOrder}
+            tooltipVisible={tooltipVisible}
             onHover={handleHeroHover}
             onLeave={handleLeave}
+            onClick={onHeroModelClick}
           />
         )
       })}

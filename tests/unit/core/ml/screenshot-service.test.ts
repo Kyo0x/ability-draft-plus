@@ -1,28 +1,53 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { EventEmitter } from 'node:events'
 import sharp from 'sharp'
 
-// Mock electron's desktopCapturer + screen
+// Mock electron's desktopCapturer (used by captureWindow)
 const mockGetSources = vi.fn()
-const mockGetPrimaryDisplay = vi.fn()
 vi.mock('electron', () => ({
   desktopCapturer: {
     getSources: (...args: unknown[]) => mockGetSources(...args),
   },
-  screen: {
-    getPrimaryDisplay: () => mockGetPrimaryDisplay(),
-  },
+}))
+
+// Mock screenshot-desktop (used by capture)
+const mockScreenshot = vi.fn()
+vi.mock('screenshot-desktop', () => ({
+  default: (...args: unknown[]) => mockScreenshot(...args),
+}))
+
+// Mock node:child_process's spawn (used by the Wayland/grim fallback)
+const mockSpawn = vi.fn()
+vi.mock('node:child_process', () => ({
+  spawn: (...args: unknown[]) => mockSpawn(...args),
 }))
 
 vi.mock('electron-log/main', () => ({
   default: {
     scope: () => ({
       debug: vi.fn(),
+      info: vi.fn(),
       warn: vi.fn(),
     }),
   },
 }))
 
 import { createScreenshotService } from '../../../../src/main/services/screenshot-service'
+
+/** This suite may run on a real Wayland/Hyprland host — force a deterministic,
+ *  non-Wayland environment by default so capture() takes the screenshot-desktop
+ *  path. The dedicated "Wayland fallback" describe block below opts back in. */
+const ORIGINAL_ENV = { ...process.env }
+function setWaylandEnv(enabled: boolean): void {
+  if (enabled) {
+    process.env['XDG_SESSION_TYPE'] = 'wayland'
+    process.env['WAYLAND_DISPLAY'] = 'wayland-1'
+  } else {
+    delete process.env['XDG_SESSION_TYPE']
+    delete process.env['WAYLAND_DISPLAY']
+    delete process.env['HYPRLAND_INSTANCE_SIGNATURE']
+  }
+}
 
 /** 2x2 BGRA bitmap: every pixel B=10, G=20, R=30, A=255. */
 function makeBgraBitmap(width = 2, height = 2): Buffer {
@@ -54,73 +79,164 @@ function makeSource(
   }
 }
 
-describe('ScreenshotService (desktopCapturer)', () => {
+describe('ScreenshotService', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetPrimaryDisplay.mockReturnValue({
-      id: 42,
-      size: { width: 2560, height: 1440 },
-      scaleFactor: 1,
-    })
-    mockGetSources.mockResolvedValue([makeSource('screen:42', '42')])
+    vi.useFakeTimers()
+    setWaylandEnv(false)
+    mockScreenshot.mockResolvedValue(Buffer.from('screenshot-data'))
   })
 
-  describe('capture (full screen)', () => {
-    it('requests screen sources at the primary display physical resolution', async () => {
-      mockGetPrimaryDisplay.mockReturnValue({
-        id: 42,
-        size: { width: 1707, height: 1067 }, // logical points at 150% scaling
-        scaleFactor: 1.5,
-      })
+  afterEach(() => {
+    vi.useRealTimers()
+    process.env = { ...ORIGINAL_ENV }
+  })
 
+  describe('capture', () => {
+    it('captures a screenshot on first call', async () => {
       const service = createScreenshotService()
+      const result = await service.capture()
+
+      expect(mockScreenshot).toHaveBeenCalledWith({ format: 'png' })
+      expect(result).toEqual(Buffer.from('screenshot-data'))
+    })
+
+    it('returns cached screenshot within TTL', async () => {
+      const service = createScreenshotService()
+
       await service.capture()
+      vi.advanceTimersByTime(1000) // Within 2s TTL
+      const result = await service.capture()
 
-      expect(mockGetSources).toHaveBeenCalledWith({
-        types: ['screen'],
-        thumbnailSize: { width: 2561, height: 1601 }, // rounded physical pixels
-      })
+      expect(mockScreenshot).toHaveBeenCalledTimes(1) // Only one actual capture
+      expect(result).toEqual(Buffer.from('screenshot-data'))
     })
 
-    it('encodes the BGRA bitmap into a PNG with swapped channels', async () => {
+    it('captures new screenshot after TTL expires', async () => {
       const service = createScreenshotService()
-      const png = await service.capture()
 
-      const { data, info } = await sharp(png)
-        .raw()
-        .toBuffer({ resolveWithObject: true })
-      expect(info.width).toBe(2)
-      expect(info.height).toBe(2)
-      // BGRA (10,20,30) must come out as RGB (30,20,10)
-      expect(data[0]).toBe(30)
-      expect(data[1]).toBe(20)
-      expect(data[2]).toBe(10)
+      await service.capture()
+      vi.advanceTimersByTime(2100) // Past 2s TTL
+
+      const newBuffer = Buffer.from('new-screenshot')
+      mockScreenshot.mockResolvedValueOnce(newBuffer)
+      const result = await service.capture()
+
+      expect(mockScreenshot).toHaveBeenCalledTimes(2)
+      expect(result).toEqual(newBuffer)
     })
 
-    it('selects the source matching the primary display id among several', async () => {
-      mockGetSources.mockResolvedValue([
-        makeSource('screen:7', '7', { width: 4, height: 4 }),
-        makeSource('screen:42', '42', { width: 2, height: 2 }),
-      ])
-
+    it('bypasses cache when forceCapture is true', async () => {
       const service = createScreenshotService()
-      const png = await service.capture()
-      const meta = await sharp(png).metadata()
-      expect(meta.width).toBe(2)
+
+      await service.capture()
+      const result = await service.capture(true)
+
+      expect(mockScreenshot).toHaveBeenCalledTimes(2)
+      expect(result).toBeDefined()
+    })
+  })
+
+  describe('prefetch', () => {
+    it('starts background capture interval', async () => {
+      const service = createScreenshotService()
+      service.startPrefetch()
+
+      // Initial capture + interval
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockScreenshot).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(mockScreenshot).toHaveBeenCalledTimes(2)
+
+      await vi.advanceTimersByTimeAsync(1500)
+      expect(mockScreenshot).toHaveBeenCalledTimes(3)
+
+      service.stopPrefetch()
     })
 
-    it('throws when no screen sources are available', async () => {
-      mockGetSources.mockResolvedValue([])
+    it('does not start multiple prefetch timers', async () => {
       const service = createScreenshotService()
-      await expect(service.capture()).rejects.toThrow('No screen sources')
+      service.startPrefetch()
+      service.startPrefetch() // Second call should be no-op
+
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockScreenshot).toHaveBeenCalledTimes(1)
+
+      service.stopPrefetch()
     })
 
-    it('throws when the capture produces an empty image', async () => {
-      mockGetSources.mockResolvedValue([
-        makeSource('screen:42', '42', { empty: true }),
-      ])
+    it('stops prefetch cleanly', async () => {
       const service = createScreenshotService()
-      await expect(service.capture()).rejects.toThrow('empty image')
+      service.startPrefetch()
+
+      await vi.advanceTimersByTimeAsync(0)
+      expect(mockScreenshot).toHaveBeenCalledTimes(1)
+
+      service.stopPrefetch()
+
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(mockScreenshot).toHaveBeenCalledTimes(1) // No more captures
+    })
+  })
+
+  describe('clearCache', () => {
+    it('clears cached screenshot', async () => {
+      const service = createScreenshotService()
+
+      await service.capture()
+      service.clearCache()
+
+      await service.capture()
+      expect(mockScreenshot).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('Wayland fallback (grim)', () => {
+    function makeFakeChild(): EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; kill: ReturnType<typeof vi.fn> } {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: EventEmitter
+        stderr: EventEmitter
+        kill: ReturnType<typeof vi.fn>
+      }
+      child.stdout = new EventEmitter()
+      child.stderr = new EventEmitter()
+      child.kill = vi.fn()
+      return child
+    }
+
+    beforeEach(() => {
+      setWaylandEnv(true)
+    })
+
+    it('uses grim instead of screenshot-desktop when on a Wayland session', async () => {
+      const child = makeFakeChild()
+      mockSpawn.mockReturnValue(child)
+
+      const service = createScreenshotService()
+      const capturePromise = service.capture()
+
+      expect(mockSpawn).toHaveBeenCalledWith('grim', expect.arrayContaining(['-t', 'png', '-']))
+      child.stdout.emit('data', Buffer.from('grim-png-data'))
+      child.emit('close', 0)
+
+      const result = await capturePromise
+      expect(result).toEqual(Buffer.from('grim-png-data'))
+      expect(mockScreenshot).not.toHaveBeenCalled()
+    })
+
+    it('falls back to screenshot-desktop when grim fails', async () => {
+      const child = makeFakeChild()
+      mockSpawn.mockReturnValue(child)
+
+      const service = createScreenshotService()
+      const capturePromise = service.capture()
+
+      child.emit('error', new Error('grim not found'))
+
+      const result = await capturePromise
+      expect(mockScreenshot).toHaveBeenCalledWith({ format: 'png' })
+      expect(result).toEqual(Buffer.from('screenshot-data'))
     })
   })
 

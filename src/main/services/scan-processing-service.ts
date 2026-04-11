@@ -74,6 +74,7 @@ export function createScanProcessingService(
           state: {
             initialPoolAbilitiesCache: state.initialPoolAbilitiesCache,
             identifiedHeroModelsCache: state.identifiedHeroModelsCache,
+            lastSelectedAbilities: state.lastSelectedAbilities,
             mySelectedSpotDbId: state.mySelectedSpotDbId,
             mySelectedSpotHeroOrder: state.mySelectedSpotHeroOrder,
             mySelectedModelDbHeroId: state.mySelectedModelDbHeroId,
@@ -101,6 +102,8 @@ export function createScanProcessingService(
             output.updatedState.initialPoolAbilitiesCache,
           identifiedHeroModelsCache:
             output.updatedState.identifiedHeroModelsCache,
+          lastSelectedAbilities:
+            output.updatedState.lastSelectedAbilities,
           mySelectedSpotDbId: output.updatedState.mySelectedSpotDbId,
           mySelectedSpotHeroOrder: output.updatedState.mySelectedSpotHeroOrder,
           mySelectedModelDbHeroId: output.updatedState.mySelectedModelDbHeroId,

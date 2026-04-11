@@ -17,6 +17,8 @@ describe('createAppStore', () => {
       activeResolutionSource: null,
       overlayOpacity: 1,
       overlayAnchor: 'right',
+      overlayMonitor: 'primary',
+      keepHighlightsWithTooltip: false,
       mlStatus: 'idle',
       mlError: null,
       mlModelGaps: null,

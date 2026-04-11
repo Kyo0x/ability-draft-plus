@@ -3,6 +3,10 @@ import log from 'electron-log/main'
 import type { StoreApi } from 'zustand/vanilla'
 import type { DraftStore } from '../store/draft-store'
 import type { WindowManager } from '../services/window-manager'
+import type { DatabaseService } from '../services/database-service'
+import type { ScanProcessingService } from '../services/scan-processing-service'
+import type { LayoutService } from '../services/layout-service'
+import type { AppStore } from '../store/app-store'
 
 // @DEV-GUIDE: Draft domain IPC handlers for "My Spot" and "My Model" selection during overlay.
 // These are fire-and-forget (ipcMain.on) because the renderer doesn't need a response.
@@ -17,6 +21,10 @@ const logger = log.scope('ipc:draft')
 export function registerDraftHandlers(
   store: StoreApi<DraftStore>,
   windowManager: WindowManager,
+  dbService: DatabaseService,
+  appStore: AppStore,
+  layoutService: LayoutService,
+  scanProcessingService: ScanProcessingService,
 ): void {
   ipcMain.on(
     'draft:selectMySpot',
@@ -59,6 +67,53 @@ export function registerDraftHandlers(
       broadcastToAll(windowManager, 'draft:selectMyModel', {
         selectedModelHeroOrder: newOrder,
       })
+    },
+  )
+
+  ipcMain.on(
+    'draft:identifyHero',
+    (_event, data: { heroOrder: number; heroId: number }) => {
+      const state = store.getState()
+      const hero = dbService.heroes.getById(data.heroId)
+      if (!hero) {
+        logger.warn('Manual hero identification failed — hero not found', { heroId: data.heroId })
+        return
+      }
+
+      // Update the hero in identifiedHeroModelsCache
+      const updatedModels = state.identifiedHeroModelsCache.map((m) => {
+        if (m.heroOrder !== data.heroOrder) return m
+        return {
+          ...m,
+          heroName: hero.name,
+          heroDisplayName: hero.displayName,
+          dbHeroId: hero.heroId,
+          winrate: hero.winrate,
+          highSkillWinrate: hero.highSkillWinrate,
+          pickRate: hero.pickRate,
+          hsPickRate: hero.hsPickRate,
+          identificationConfidence: 1.0, // manual override = full confidence
+        }
+      })
+
+      store.setState({ identifiedHeroModelsCache: updatedModels })
+      logger.info('Manual hero identification', {
+        heroOrder: data.heroOrder,
+        heroName: hero.displayName,
+      })
+
+      // Re-process to re-enrich and broadcast updated overlay data
+      const resolution = appStore.getState().activeResolution
+      if (resolution) {
+        const scaleFactor = layoutService.getScaleFactor()
+        // Pass the cached selected abilities so picked-ability display is preserved
+        scanProcessingService.handleScanResults(
+          state.lastSelectedAbilities,
+          false,
+          resolution,
+          scaleFactor,
+        )
+      }
     },
   )
 

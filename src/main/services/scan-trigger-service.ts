@@ -94,7 +94,7 @@ export function createScanTriggerService(
             physicalScreen,
           )
         }
-        screenshotBuffer ??= await screenshotService.capture()
+        screenshotBuffer ??= await screenshotService.capture(true)
 
         const layout = layoutService.getLayout(resolution)
         if (!layout) {
@@ -152,6 +152,16 @@ export function createScanTriggerService(
           results: result.results,
           isInitialScan: result.isInitialScan,
         })
+
+        // In companion mode (secondary monitor), send the screenshot to the overlay
+        // so it can render the game view as a background image
+        if (appStore.getState().overlayMonitor === 'secondary') {
+          const overlay = windowManager.getOverlayWindow()
+          if (overlay && !overlay.isDestroyed()) {
+            const dataUrl = `data:image/png;base64,${screenshotBuffer.toString('base64')}`
+            overlay.webContents.send('overlay:screenshot', dataUrl)
+          }
+        }
 
         // Process and enrich scan results, then broadcast overlay:data
         const scaleFactor = layoutService.getScaleFactor()

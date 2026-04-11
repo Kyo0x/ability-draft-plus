@@ -13,6 +13,7 @@ export {
 } from './op-trap-filter'
 export { determineTopTierEntities } from './top-tier'
 export { processScanResults } from './scan-processor'
+export { computeBestPickSuggestions } from './best-pick-suggestions'
 export type { ScanProcessorInput, ScanProcessorOutput } from './scan-processor'
 export type {
   ScoredEntity,

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, shell } from 'electron'
+import { app, BrowserWindow, screen, shell, type Display } from 'electron'
 import { join } from 'path'
 import log from 'electron-log/main'
 
@@ -18,11 +18,12 @@ import log from 'electron-log/main'
 // in AppStore. The control panel auto-restores and refocuses.
 
 const logger = log.scope('window-manager')
+const IS_LINUX = process.platform === 'linux'
 
 export interface WindowManager {
   createControlPanelWindow(): BrowserWindow
-  createOverlayWindow(): BrowserWindow
-  repositionOverlay(bounds: { x: number; y: number; width: number; height: number }): void
+  createOverlayWindow(targetDisplay?: Display): BrowserWindow
+  repositionOverlay(bounds: { x: number; y: number; width: number; height: number }, referenceDisplay?: Display): void
   getControlPanelWindow(): BrowserWindow | null
   getOverlayWindow(): BrowserWindow | null
   closeOverlay(): void
@@ -94,13 +95,13 @@ export function createWindowManager(): WindowManager {
     return controlPanelWindow
   }
 
-  function createOverlayWindow(): BrowserWindow {
+  function createOverlayWindow(targetDisplay?: Display): BrowserWindow {
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close()
     }
 
-    const primaryDisplay = screen.getPrimaryDisplay()
-    const { width, height, x, y } = primaryDisplay.bounds
+    const display = targetDisplay ?? screen.getPrimaryDisplay()
+    const { width, height, x, y } = display.bounds
 
     // Shrink by 1px to prevent Windows from treating this as a true fullscreen window.
     // When a transparent overlay covers the entire display, Windows stops forwarding
@@ -125,8 +126,14 @@ export function createWindowManager(): WindowManager {
     })
 
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')
-    overlayWindow.setVisibleOnAllWorkspaces(true)
-    overlayWindow.setIgnoreMouseEvents(true, { forward: true })
+    // On Linux (e.g. Hyprland special workspaces), setVisibleOnAllWorkspaces can pull the
+    // window out of the selected workspace. Keep this for Windows/macOS only.
+    if (process.platform === 'win32' || process.platform === 'darwin') {
+      overlayWindow.setVisibleOnAllWorkspaces(true)
+    }
+    // Linux companion windows are interactive and managed via compositor workspace overlays,
+    // so disable OS-level click-through there.
+    overlayWindow.setIgnoreMouseEvents(!IS_LINUX, { forward: true })
     overlayWindow.showInactive()
 
     loadWindowContent(overlayWindow, 'overlay/index.html')
@@ -148,7 +155,7 @@ export function createWindowManager(): WindowManager {
       logger.info('Overlay window closed')
     })
 
-    logger.info('Overlay window created', { width, height })
+    logger.info('Overlay window created', { width, height, displayId: display.id })
     return overlayWindow
   }
 
@@ -169,10 +176,11 @@ export function createWindowManager(): WindowManager {
   // @DEV-GUIDE: Called by window tracker polling when the Dota 2 game window moves or resizes.
   // In windowed mode, the overlay shrinks to match the game window. In fullscreen, it covers
   // the display (minus 1px). The 1px shrink is critical — see createOverlayWindow comment.
-  function repositionOverlay(bounds: { x: number; y: number; width: number; height: number }): void {
+  // referenceDisplay is the display the overlay lives on (used for the full-display check).
+  function repositionOverlay(bounds: { x: number; y: number; width: number; height: number }, referenceDisplay?: Display): void {
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       // Prevent the overlay from covering the entire display — see createOverlayWindow comment.
-      const display = screen.getPrimaryDisplay()
+      const display = referenceDisplay ?? screen.getPrimaryDisplay()
       const coversFullDisplay =
         bounds.x === display.bounds.x &&
         bounds.y === display.bounds.y &&
@@ -188,6 +196,10 @@ export function createWindowManager(): WindowManager {
   }
 
   function setOverlayMouseEvents(ignore: boolean, forward = true): void {
+    if (IS_LINUX) {
+      return
+    }
+
     if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.setIgnoreMouseEvents(ignore, { forward })
     }

@@ -28,6 +28,7 @@ import {
 } from './op-trap-filter'
 import { determineTopTierEntities } from './top-tier'
 import { RESCAN_GUARD_MAX_CONSECUTIVE_REJECTIONS } from '@shared/constants/thresholds'
+import { computeBestPickSuggestions } from './best-pick-suggestions'
 
 // @DEV-GUIDE: Central business logic — transforms raw ML scan results into a fully-enriched
 // OverlayDataPayload for the overlay UI. This is pure TypeScript with ZERO Electron imports.
@@ -209,6 +210,9 @@ export function processScanResults(
     ultimates = state.initialPoolAbilitiesCache.ultimates
     standard = state.initialPoolAbilitiesCache.standard
   }
+
+  // Cache selected abilities for re-enrichment (e.g. manual hero identification)
+  state.lastSelectedAbilities = [...selectedAbilities]
 
   // --- Phase 2: Collect ability names ---
   const uniquePoolNames = new Set<string>()
@@ -433,6 +437,19 @@ export function processScanResults(
     state.identifiedHeroModelsCache,
   )
 
+  // --- Phase 13.5: Best pick suggestions for user's picked spells ---
+  // Only compute when My Spot is selected — otherwise we can't distinguish the user's
+  // picks from other players' picks in the selectedAbilities array.
+  const myPickedAbilities = state.mySelectedSpotHeroOrder !== null
+    ? selectedAbilities.filter((s) => s.hero_order === state.mySelectedSpotHeroOrder)
+    : []
+  const bestPickSuggestions = computeBestPickSuggestions(
+    myPickedAbilities,
+    [...ultimates, ...standard],
+    abilityDetailsMap,
+    deps.synergies,
+  )
+
   // --- Phase 14: Assemble overlay payload ---
   const overlayPayload: OverlayDataPayload = {
     initialSetup: false,
@@ -454,6 +471,7 @@ export function processScanResults(
     heroesCoords,
     heroesParams,
     modelsCoords: modelCoords,
+    bestPickSuggestions,
   }
 
   return {
@@ -478,6 +496,7 @@ function cloneState(state: DraftSessionState): DraftSessionState {
       standard: [...state.initialPoolAbilitiesCache.standard],
     },
     identifiedHeroModelsCache: [...state.identifiedHeroModelsCache],
+    lastSelectedAbilities: [...state.lastSelectedAbilities],
     mySelectedSpotDbId: state.mySelectedSpotDbId,
     mySelectedSpotHeroOrder: state.mySelectedSpotHeroOrder,
     mySelectedModelDbHeroId: state.mySelectedModelDbHeroId,
@@ -686,13 +705,11 @@ function enrichHeroModels(
 function buildHeroesForMySpotUI(
   heroModels: IdentifiedHeroModel[],
 ): HeroSpotDisplay[] {
-  return heroModels
-    .filter((m) => m.dbHeroId !== null)
-    .map((m) => ({
-      heroOrder: m.heroOrder,
-      heroName: m.heroDisplayName,
-      dbHeroId: m.dbHeroId!,
-    }))
+  return heroModels.map((m) => ({
+    heroOrder: m.heroOrder,
+    heroName: m.heroDisplayName,
+    dbHeroId: m.dbHeroId ?? -m.heroOrder,
+  }))
 }
 
 // @DEV-GUIDE: Phase 8.5 — For each OP/Trap pair, looks up triplet data to suggest a "third ability"

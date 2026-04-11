@@ -28,6 +28,7 @@ export interface OverlayState {
   scanError: string | null
   snapshotMessage: string | null
   snapshotIsError: boolean
+  screenshotUrl: string | null
 }
 
 export function useOverlayData(): OverlayState & {
@@ -42,6 +43,7 @@ export function useOverlayData(): OverlayState & {
   const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null)
   const [snapshotIsError, setSnapshotIsError] = useState(false)
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
 
   const clearScanTimeout = (): void => {
     if (scanTimeoutRef.current) {
@@ -101,6 +103,10 @@ export function useOverlayData(): OverlayState & {
       setSnapshotIsError(data.error ?? false)
     })
 
+    const unsubScreenshot = window.electronApi.on('overlay:screenshot', (dataUrl) => {
+      setScreenshotUrl(dataUrl)
+    })
+
     return () => {
       clearScanTimeout()
       unsubOverlayData()
@@ -108,6 +114,7 @@ export function useOverlayData(): OverlayState & {
       unsubModel()
       unsubScanResults()
       unsubSnapshot()
+      unsubScreenshot()
     }
   }, [])
 
@@ -159,6 +166,7 @@ export function useOverlayData(): OverlayState & {
     scanError,
     snapshotMessage,
     snapshotIsError,
+    screenshotUrl,
     triggerScan,
     resetOverlay,
   }

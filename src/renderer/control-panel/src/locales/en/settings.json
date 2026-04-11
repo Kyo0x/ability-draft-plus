@@ -18,6 +18,13 @@
     "defaultLabel": "Default: {{value}}%",
     "resetButton": "Reset to default"
   },
+  "monitor": {
+    "title": "Overlay Display",
+    "description": "Choose which monitor shows the game overlay. 'Secondary' sends the overlay to your second display — useful when Dota 2 runs fullscreen on your primary monitor.",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "secondaryDisabledHint": "Only one display detected"
+  },
   "appearance": {
     "title": "Appearance",
     "themeLabel": "Theme",
@@ -25,7 +32,9 @@
     "overlayOpacityLabel": "Overlay panels opacity",
     "overlayAnchorLabel": "Overlay panels position",
     "anchorLeft": "Left",
-    "anchorRight": "Right"
+    "anchorRight": "Right",
+    "keepHighlightsLabel": "Keep highlights while tooltip open",
+    "keepHighlightsHint": "Ability shimmer/glow stays visible when you hover a tooltip"
   },
   "backup": {
     "title": "Database Backup",

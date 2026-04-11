@@ -22,6 +22,8 @@ export interface AppStoreState {
   activeResolutionSource: LayoutSource | null
   overlayOpacity: number
   overlayAnchor: 'left' | 'right'
+  overlayMonitor: 'primary' | 'secondary'
+  keepHighlightsWithTooltip: boolean
 
   // ML Worker Status
   mlStatus: 'idle' | 'initializing' | 'ready' | 'scanning' | 'error'
@@ -64,6 +66,8 @@ export const APP_ACTIONS = {
   LANGUAGE_SET: 'LANGUAGE:SET',
   OVERLAY_SET_ACTIVE: 'OVERLAY:SET_ACTIVE',
   OVERLAY_SET_APPEARANCE: 'OVERLAY:SET_APPEARANCE',
+  OVERLAY_SET_MONITOR: 'OVERLAY:SET_MONITOR',
+  OVERLAY_SET_KEEP_HIGHLIGHTS: 'OVERLAY:SET_KEEP_HIGHLIGHTS',
   ML_SET_STATUS: 'ML:SET_STATUS',
   ML_SET_MODEL_GAPS: 'ML:SET_MODEL_GAPS',
   SCRAPER_SET_STATUS: 'SCRAPER:SET_STATUS',
