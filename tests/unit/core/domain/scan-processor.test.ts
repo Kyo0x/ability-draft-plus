@@ -542,4 +542,75 @@ describe('processScanResults', () => {
       expect(overlayPayload.selectedModelHeroOrder).toBeNull()
     })
   })
+
+  describe('Phase 9 – My Spot synergistic partners (only user picks)', () => {
+    it('does not mark isSynergySuggestionForMySpot when user has no picked abilities', () => {
+      // User selected spot at heroOrder=1 but only heroOrder=0 has a picked ability
+      const initialResult = processScanResults(makeInitialScanInput())
+      const stateWithSpot = {
+        ...initialResult.updatedState,
+        mySelectedSpotDbId: 99,
+        mySelectedSpotHeroOrder: 1, // user is at slot 1
+      }
+
+      const rescanInput: ScanProcessorInput = {
+        rawResults: [makeScanResult('fireball', 0, 0, false)], // picked by hero_order 0, NOT user
+        isInitialScan: false,
+        state: stateWithSpot,
+        deps: mockDeps,
+        modelCoords: [makeCoord(0), makeCoord(1)],
+        heroesCoords: [makeCoord(0), makeCoord(1)],
+        heroesParams: { width: 358, height: 170 },
+        targetResolution: '1920x1080',
+        scaleFactor: 1.0,
+      }
+
+      const { overlayPayload } = processScanResults(rescanInput)
+
+      // ice_blast synergizes with fireball per mock, but fireball was picked by another player –
+      // no ability in the pool should be flagged as a synergy suggestion for the user's spot.
+      const allSlots = [
+        ...overlayPayload.scanData!.ultimates,
+        ...overlayPayload.scanData!.standard,
+      ]
+      const anyMarked = allSlots.some((s) => s.isSynergySuggestionForMySpot)
+      expect(anyMarked).toBe(false)
+    })
+
+    it('marks isSynergySuggestionForMySpot based only on the user\'s picked abilities', () => {
+      const initialResult = processScanResults(makeInitialScanInput())
+      const stateWithSpot = {
+        ...initialResult.updatedState,
+        mySelectedSpotDbId: 99,
+        mySelectedSpotHeroOrder: 0, // user IS at slot 0
+      }
+
+      const rescanInput: ScanProcessorInput = {
+        rawResults: [
+          makeScanResult('fireball', 0, 0, false), // user's pick (hero_order 0)
+          makeScanResult('blink', 1, 0, false),    // another player's pick (hero_order 1)
+        ],
+        isInitialScan: false,
+        state: stateWithSpot,
+        deps: mockDeps,
+        modelCoords: [makeCoord(0), makeCoord(1)],
+        heroesCoords: [makeCoord(0), makeCoord(1)],
+        heroesParams: { width: 358, height: 170 },
+        targetResolution: '1920x1080',
+        scaleFactor: 1.0,
+      }
+
+      const { overlayPayload } = processScanResults(rescanInput)
+
+      // mock returns ice_blast as synergy partner for any ability –
+      // ice_blast is still in the pool (not yet picked), so it should be marked
+      const allSlots = [
+        ...overlayPayload.scanData!.ultimates,
+        ...overlayPayload.scanData!.standard,
+      ]
+      const iceBlastSlot = allSlots.find((s) => s.name === 'ice_blast')
+      // ice_blast is a synergy partner of fireball (user's pick at hero_order 0)
+      expect(iceBlastSlot?.isSynergySuggestionForMySpot).toBe(true)
+    })
+  })
 })

@@ -357,8 +357,11 @@ export function processScanResults(
 
   // --- Phase 9: My Spot synergistic partners ---
   const synergisticPartnersInPool = new Set<string>()
-  if (state.mySelectedSpotDbId !== null) {
-    for (const slot of selectedAbilities) {
+  if (state.mySelectedSpotDbId !== null && state.mySelectedSpotHeroOrder !== null) {
+    const myPickedForSynergy = selectedAbilities.filter(
+      (s) => s.hero_order === state.mySelectedSpotHeroOrder,
+    )
+    for (const slot of myPickedForSynergy) {
       if (!slot.name) continue
       const combos = deps.synergies.getHighWinrateCombinations(
         slot.name,
