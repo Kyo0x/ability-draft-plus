@@ -137,9 +137,7 @@ function App(): React.ReactElement {
 
   const handleHeroModelClick = useCallback(
     (model: import('@shared/types').HeroModelDisplay): void => {
-      if (model.dbHeroId === null) {
-        setHeroSelectorOrder(model.heroOrder)
-      }
+      setHeroSelectorOrder(model.heroOrder)
     },
     [],
   )

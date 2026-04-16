@@ -52,10 +52,10 @@ export function HeroModelHotspot({
   )
 
   const handleClick = useCallback(() => {
-    if (isUnidentified && onClick) {
+    if (onClick) {
       onClick(model)
     }
-  }, [isUnidentified, onClick, model])
+  }, [onClick, model])
 
   return (
     <div
