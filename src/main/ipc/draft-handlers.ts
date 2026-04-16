@@ -97,6 +97,14 @@ export function registerDraftHandlers(
       })
 
       store.setState({ identifiedHeroModelsCache: updatedModels })
+
+      // Sync mySelectedSpotDbId if the user's selected spot was this hero order.
+      // Without this, the toggle check (mySelectedSpotDbId === incoming dbHeroId)
+      // breaks when the hero's id changed from a fake negative to a real one.
+      if (state.mySelectedSpotHeroOrder === data.heroOrder) {
+        store.setState({ mySelectedSpotDbId: hero.heroId })
+      }
+
       logger.info('Manual hero identification', {
         heroOrder: data.heroOrder,
         heroName: hero.displayName,
