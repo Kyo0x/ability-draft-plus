@@ -21,7 +21,10 @@ import {
 // - captureWindow(title, expectedSize): Electron's native desktopCapturer,
 //   by exact window title — the fast path for fullscreen/borderless Dota on
 //   Windows. Returns null (never throws) when the source is unavailable or
-//   the frame size doesn't match; callers fall back to capture().
+//   the frame size doesn't match; callers fall back to capture(). On Linux/
+//   Wayland desktopCapturer routes through xdg-desktop-portal, which pops a
+//   screen/window picker dialog on every call — supportsWindowCapture() is
+//   false there so callers skip straight to capture() (grim, no portal).
 //
 // PNG encoding for captureWindow is NOT done with NativeImage.toPNG(): that is
 // synchronous on the main process thread (~100ms+ at 1440p) and froze the event
@@ -53,6 +56,9 @@ export interface ScreenshotService {
   /** Set the logical bounds of the display to capture (Electron display.bounds).
    *  Pass null to revert to the default full-screen capture. */
   setTargetDisplay(bounds: { x: number; y: number; width: number; height: number } | null): void
+  /** False on Linux/Wayland — desktopCapturer requires portal consent there,
+   *  which surfaces as a screen/window picker dialog on every captureWindow() call. */
+  supportsWindowCapture(): boolean
 }
 
 /** Electron bitmaps are BGRA; sharp expects RGBA — swap in place (a few ms). */
@@ -308,6 +314,10 @@ export function createScreenshotService(): ScreenshotService {
     logger.info('Screenshot target display set', bounds ?? { note: 'full screen' })
   }
 
+  function supportsWindowCapture(): boolean {
+    return !(isLinux && isWaylandSession)
+  }
+
   return {
     capture,
     captureWindow,
@@ -315,5 +325,6 @@ export function createScreenshotService(): ScreenshotService {
     stopPrefetch,
     clearCache,
     setTargetDisplay,
+    supportsWindowCapture,
   }
 }

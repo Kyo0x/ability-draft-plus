@@ -192,6 +192,25 @@ describe('ScreenshotService', () => {
     })
   })
 
+  describe('supportsWindowCapture', () => {
+    it('returns true outside a Wayland session', () => {
+      setWaylandEnv(false)
+      const service = createScreenshotService()
+      expect(service.supportsWindowCapture()).toBe(true)
+    })
+
+    // isLinux is derived from process.platform, so the Wayland-gated false case
+    // only applies when this suite actually runs on Linux.
+    it.runIf(process.platform === 'linux')(
+      'returns false on a Wayland session (desktopCapturer would need portal consent)',
+      () => {
+        setWaylandEnv(true)
+        const service = createScreenshotService()
+        expect(service.supportsWindowCapture()).toBe(false)
+      },
+    )
+  })
+
   describe('Wayland fallback (grim)', () => {
     function makeFakeChild(): EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; kill: ReturnType<typeof vi.fn> } {
       const child = new EventEmitter() as EventEmitter & {

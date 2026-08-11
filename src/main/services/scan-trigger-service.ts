@@ -88,7 +88,7 @@ export function createScanTriggerService(
             gameBounds.height >= physicalScreen.height)
 
         let screenshotBuffer: Buffer | null = null
-        if (isFullscreen) {
+        if (isFullscreen && screenshotService.supportsWindowCapture()) {
           screenshotBuffer = await screenshotService.captureWindow(
             GAME_WINDOW_TITLE,
             physicalScreen,
